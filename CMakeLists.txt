@@ -1,7 +1,15 @@
-﻿# CMakeList.txt : CMake project for Primitives, include source and define
-# project specific logic here.
-#
-cmake_minimum_required (VERSION 3.8)
+cmake_minimum_required(VERSION 3.21)
+
+option(BUILD_GRAPHICS "Build the interactive SFML application" ON)
+option(BUILD_TESTING "Build the unit tests" ON)
+
+# Select vcpkg dependencies before project() loads the vcpkg toolchain.
+if (BUILD_GRAPHICS)
+  list(APPEND VCPKG_MANIFEST_FEATURES "graphics")
+endif()
+if (BUILD_TESTING)
+  list(APPEND VCPKG_MANIFEST_FEATURES "tests")
+endif()
 
 # Enable Hot Reload for MSVC compilers if supported.
 if (POLICY CMP0141)
@@ -9,23 +17,30 @@ if (POLICY CMP0141)
   set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
-project ("Graphics")
+project("Graphics")
 
+add_subdirectory("Common")
 
-# Add source files to this project's executable.
-# Visual Studio and CLion should update this line for you. VS Code will not; for each 
-# .h or .cpp file you add to the project, you must add its path to this command.
-add_executable (Graphics "src/main.cpp"      )
+if (BUILD_GRAPHICS)
+  add_executable(Graphics
+    "src/main.cpp"
+    "include/sfml_renderer.h"
+    "src/sfml_renderer.cpp"
+  )
 
+  find_package(SFML COMPONENTS System Window Graphics CONFIG REQUIRED)
+  target_link_libraries(Graphics PRIVATE
+    common
+    SFML::System
+    SFML::Window
+    SFML::Graphics
+  )
 
-# Find and link external libraries, like SFML.
-# This only works if Vcpkg has been configured correctly.
-find_package(SFML COMPONENTS System Window Graphics CONFIG REQUIRED)
-target_link_libraries(Graphics PRIVATE SFML::System SFML::Window SFML::Graphics)
+  target_include_directories(Graphics PRIVATE "./include")
+  target_compile_features(Graphics PRIVATE cxx_std_20)
+endif()
 
-# Set up our own "/include" folder as the root for #include "...." statements.
-target_include_directories(Graphics PUBLIC "./include")
-
-if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET Graphics PROPERTY CXX_STANDARD 20)
+include(CTest)
+if (BUILD_TESTING)
+  add_subdirectory("tests")
 endif()
